@@ -166,6 +166,19 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
     return best_val_loss, best_model
 
 
+def paths_to_tensor(batch_pred_paths, size) -> torch.Tensor:
+    """
+
+    :param batch_pred_paths:
+    :param size:
+    :return:
+    """
+    batch_pred = torch.zeros(size)
+    for i, bp in enumerate(batch_pred_paths):
+        batch_pred[i, : len(bp[0])] = torch.Tensor(bp[0])
+    return batch_pred
+
+
 def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0, return_labels=False):
     """
     :param model: torch.nn.Module - обученная модель
@@ -193,18 +206,12 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
                 labels.append(batch_y.numpy())
 
             batch_pred = model(batch_x)
-            batch_pred = batch_pred.argmax(1)
-
             mask = (batch_x[:, :, 1] != 0)
-            # set_trace()
-            batch_pred= model.crf.viterbi_tags(batch_pred, mask)
-
+            batch_pred = model.crf.viterbi_tags(batch_pred.permute(0, 2, 1), mask)
+            batch_pred = paths_to_tensor(batch_pred, mask.shape)
             results_by_batch.append(batch_pred.detach().cpu().numpy())
 
     if return_labels:
         return np.concatenate(results_by_batch, 0), np.concatenate(labels, 0)
     else:
         return np.concatenate(results_by_batch, 0)
-
-
-# decoded_tag_list_with_scores = crf.viterbi_tags(logits, mask)
