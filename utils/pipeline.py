@@ -2,8 +2,33 @@ import copy
 import datetime
 import traceback
 import time
+from typing import Dict, List, Tuple
+from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
 from torch.utils.data import DataLoader
+
+
+def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
+    """
+
+    :param tag2id:
+    :return:
+    """
+    str_transitions_constraints = [
+        ('<NOTAG>', '<NOTAG>'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
+        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'),
+        ('I-LOC', 'I-LOC'), ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'),
+        ('I-LOC', 'O'), ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'),
+        ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'), ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'),
+        ('I-MISC', 'I-PER'), ('I-MISC', 'O'), ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'),
+        ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'), ('I-ORG', 'I-MISC'),
+        ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'), ('I-PER', '<NOTAG>'),
+        ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
+        ('I-PER', 'I-MISC'), ('I-PER', 'I-ORG'), ('I-PER', 'I-PER'), ('I-PER', 'O'),
+        ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
+        ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
+    ]
+    return [(tag2id[pair[0]], tag2id[pair[1]]) for pair in str_transitions_constraints]
 
 
 def copy_data_to_device(data, device):
@@ -14,17 +39,17 @@ def copy_data_to_device(data, device):
     raise ValueError('Недопустимый тип данных {}'.format(type(data)))
 
 
-def train_eval_loop(model, train_dataset, val_dataset, criterion,
+def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                     lr=1e-4, epoch_n=10, batch_size=32,
                     device=None, early_stopping_patience=10, l2_reg_alpha=0,
                     max_batches_per_epoch_train=10000,
                     max_batches_per_epoch_val=1000,
                     data_loader_ctor=DataLoader,
                     optimizer_ctor=None,
-                    optimizer_params=None,
                     lr_scheduler_ctor=None,
                     shuffle_train=True,
-                    dataloader_workers_n=0, verbose_batch=False):
+                    dataloader_workers_n=0,
+                    verbose_batch=False):
     """
     Цикл для обучения модели. После каждой эпохи качество модели оценивается по отложенной выборке.
     :param model: torch.nn.Module - обучаемая модель
@@ -56,16 +81,11 @@ def train_eval_loop(model, train_dataset, val_dataset, criterion,
     device = torch.device(device)
     model.to(device)
 
-    if optimizer_params is None:
-        optimizer_params = {'lr': lr}
-    else:
-        optimizer_params['lr'] = lr
-
     if optimizer_ctor is None:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_reg_alpha)
     else:
-        optimizer = optimizer_ctor(model.parameters(), **optimizer_params)
-    print(optimizer)
+        optimizer = optimizer_ctor(model.parameters())
+
 
     if lr_scheduler_ctor is not None:
         lr_scheduler = lr_scheduler_ctor(optimizer)
@@ -81,6 +101,9 @@ def train_eval_loop(model, train_dataset, val_dataset, criterion,
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
 
+    STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
+    crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
+
     for epoch_i in range(epoch_n):
         try:
             epoch_start = datetime.datetime.now()
@@ -94,11 +117,15 @@ def train_eval_loop(model, train_dataset, val_dataset, criterion,
                 if batch_i > max_batches_per_epoch_train:
                     break
 
+                mask = (batch_x != tag2id['<NOTAG>'])
+
                 batch_x = copy_data_to_device(batch_x, device)
                 batch_y = copy_data_to_device(batch_y, device)
+                mask = copy_data_to_device(mask, device)
 
                 pred = model(batch_x)
-                loss = criterion(pred, batch_y)
+                loss = -crf(pred, batch_y, mask)
+                # loss = criterion(pred, batch_y)
 
                 model.zero_grad()
                 loss.backward()
@@ -124,11 +151,14 @@ def train_eval_loop(model, train_dataset, val_dataset, criterion,
                     if batch_i > max_batches_per_epoch_val:
                         break
 
+                    mask = (batch_x != tag2id['<NOTAG>'])
+
                     batch_x = copy_data_to_device(batch_x, device)
                     batch_y = copy_data_to_device(batch_y, device)
+                    mask = copy_data_to_device(mask, device)
 
                     pred = model(batch_x)
-                    loss = criterion(pred, batch_y)
+                    loss = -crf(pred, batch_y, mask)
 
                     mean_val_loss += float(loss)
                     val_batches_n += 1
@@ -158,3 +188,6 @@ def train_eval_loop(model, train_dataset, val_dataset, criterion,
             break
 
     return best_val_loss, best_model
+
+
+# decoded_tag_list_with_scores = crf.viterbi_tags(logits, mask)
