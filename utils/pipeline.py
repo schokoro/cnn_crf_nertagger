@@ -193,11 +193,11 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
                 labels.append(batch_y.numpy())
 
             batch_pred = model(batch_x)
+            batch_pred = batch_pred.argmax(1)
 
             mask = (batch_x[:, :, 1] != 0)
-
             # set_trace()
-            # batch_pred= model.crf.viterbi_tags(batch_pred, mask)
+            batch_pred= model.crf.viterbi_tags(batch_pred, mask)
 
             results_by_batch.append(batch_pred.detach().cpu().numpy())
 

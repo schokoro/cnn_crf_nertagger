@@ -80,7 +80,7 @@ def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int,
     return [(tag2id[pair[0]], tag2id[pair[1]]) for pair in str_transitions_constraints]
 
 
-class NERTagger(nn.Module):
+class NERTaggerModel(nn.Module):
     def __init__(self, vocab_size, labels_num, tag2id, embedding_size=32, single_backbone_kwargs={},
                  context_backbone_kwargs=None):
         super().__init__()
