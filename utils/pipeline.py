@@ -102,7 +102,7 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
     best_model = copy.deepcopy(model)
 
     STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
-    crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
+    crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS).to(device)
 
     for epoch_i in range(epoch_n):
         try:
