@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
 from torch.utils.data import DataLoader
+from pdb import set_trace
 
 
 def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
@@ -86,7 +87,6 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
     else:
         optimizer = optimizer_ctor(model.parameters())
 
-
     if lr_scheduler_ctor is not None:
         lr_scheduler = lr_scheduler_ctor(optimizer)
     else:
@@ -117,14 +117,15 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                 if batch_i > max_batches_per_epoch_train:
                     break
 
-                mask = (batch_x != tag2id['<NOTAG>'])
+                mask = (batch_x[:, :, 1] != 0)
 
                 batch_x = copy_data_to_device(batch_x, device)
                 batch_y = copy_data_to_device(batch_y, device)
                 mask = copy_data_to_device(mask, device)
-
+                # set_trace()
                 pred = model(batch_x)
-                loss = -crf(pred, batch_y, mask)
+
+                loss = -crf(pred.permute(0, 2, 1), batch_y, mask)
                 # loss = criterion(pred, batch_y)
 
                 model.zero_grad()
@@ -151,14 +152,14 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                     if batch_i > max_batches_per_epoch_val:
                         break
 
-                    mask = (batch_x != tag2id['<NOTAG>'])
+                    mask = (batch_x[:, :, 1] != 0)
 
                     batch_x = copy_data_to_device(batch_x, device)
                     batch_y = copy_data_to_device(batch_y, device)
                     mask = copy_data_to_device(mask, device)
 
                     pred = model(batch_x)
-                    loss = -crf(pred, batch_y, mask)
+                    loss = -crf(pred.permute(0, 2, 1), batch_y, mask)
 
                     mean_val_loss += float(loss)
                     val_batches_n += 1
@@ -188,6 +189,5 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
             break
 
     return best_val_loss, best_model
-
 
 # decoded_tag_list_with_scores = crf.viterbi_tags(logits, mask)
