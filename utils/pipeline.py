@@ -3,33 +3,11 @@ import datetime
 import traceback
 import time
 from typing import Dict, List, Tuple
-from allennlp.modules.conditional_random_field import ConditionalRandomField
+
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from pdb import set_trace
-
-
-def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
-    """
-
-    :param tag2id:
-    :return:
-    """
-    str_transitions_constraints = [
-        ('<NOTAG>', '<NOTAG>'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
-        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'),
-        ('I-LOC', 'I-LOC'), ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'),
-        ('I-LOC', 'O'), ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'),
-        ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'), ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'),
-        ('I-MISC', 'I-PER'), ('I-MISC', 'O'), ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'),
-        ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'), ('I-ORG', 'I-MISC'),
-        ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'), ('I-PER', '<NOTAG>'),
-        ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
-        ('I-PER', 'I-MISC'), ('I-PER', 'I-ORG'), ('I-PER', 'I-PER'), ('I-PER', 'O'),
-        ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
-        ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
-    ]
-    return [(tag2id[pair[0]], tag2id[pair[1]]) for pair in str_transitions_constraints]
 
 
 def copy_data_to_device(data, device):
@@ -101,9 +79,6 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
 
-    STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
-    crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS).to(device)
-
     for epoch_i in range(epoch_n):
         try:
             epoch_start = datetime.datetime.now()
@@ -125,7 +100,7 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                 # set_trace()
                 pred = model(batch_x)
 
-                loss = -crf(pred.permute(0, 2, 1), batch_y, mask)
+                loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask)
                 # loss = criterion(pred, batch_y)
 
                 model.zero_grad()
@@ -159,7 +134,7 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                     mask = copy_data_to_device(mask, device)
 
                     pred = model(batch_x)
-                    loss = -crf(pred.permute(0, 2, 1), batch_y, mask)
+                    loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask)
 
                     mean_val_loss += float(loss)
                     val_batches_n += 1
@@ -189,5 +164,47 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
             break
 
     return best_val_loss, best_model
+
+
+def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0, return_labels=False):
+    """
+    :param model: torch.nn.Module - обученная модель
+    :param dataset: torch.utils.data.Dataset - данные для применения модели
+    :param device: cuda/cpu - устройство, на котором выполнять вычисления
+    :param batch_size: количество примеров, обрабатываемых моделью за одну итерацию
+    :return: numpy.array размерности len(dataset) x *
+    """
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    results_by_batch = []
+
+    device = torch.device(device)
+    model.to(device)
+    model.eval()
+
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    labels = []
+    with torch.no_grad():
+        import tqdm
+        for batch_x, batch_y in tqdm.tqdm(dataloader, total=len(dataset)/batch_size):
+            batch_x = copy_data_to_device(batch_x, device)
+
+            if return_labels:
+                labels.append(batch_y.numpy())
+
+            batch_pred = model(batch_x)
+
+            mask = (batch_x[:, :, 1] != 0)
+
+            # set_trace()
+            # batch_pred= model.crf.viterbi_tags(batch_pred, mask)
+
+            results_by_batch.append(batch_pred.detach().cpu().numpy())
+
+    if return_labels:
+        return np.concatenate(results_by_batch, 0), np.concatenate(labels, 0)
+    else:
+        return np.concatenate(results_by_batch, 0)
+
 
 # decoded_tag_list_with_scores = crf.viterbi_tags(logits, mask)

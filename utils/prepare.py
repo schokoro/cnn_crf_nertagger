@@ -27,3 +27,5 @@ def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len
     return inputs, targets
 
 
+
+

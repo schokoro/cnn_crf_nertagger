@@ -1,5 +1,7 @@
-from typing import Union, List
+from typing import Union, List, Dict, Tuple
 from torch import nn
+from torch.utils.data import TensorDataset
+from allennlp.modules.conditional_random_field import ConditionalRandomField
 
 
 class StackedConv1d(nn.Module):
@@ -55,8 +57,31 @@ class StackedConv1d(nn.Module):
         return x
 
 
+def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
+    """
+
+    :param tag2id:
+    :return:
+    """
+    str_transitions_constraints = [
+        ('<NOTAG>', '<NOTAG>'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
+        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'),
+        ('I-LOC', 'I-LOC'), ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'),
+        ('I-LOC', 'O'), ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'),
+        ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'), ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'),
+        ('I-MISC', 'I-PER'), ('I-MISC', 'O'), ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'),
+        ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'), ('I-ORG', 'I-MISC'),
+        ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'), ('I-PER', '<NOTAG>'),
+        ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
+        ('I-PER', 'I-MISC'), ('I-PER', 'I-ORG'), ('I-PER', 'I-PER'), ('I-PER', 'O'),
+        ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
+        ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
+    ]
+    return [(tag2id[pair[0]], tag2id[pair[1]]) for pair in str_transitions_constraints]
+
+
 class NERTagger(nn.Module):
-    def __init__(self, vocab_size, labels_num, embedding_size=32, single_backbone_kwargs={},
+    def __init__(self, vocab_size, labels_num, tag2id, embedding_size=32, single_backbone_kwargs={},
                  context_backbone_kwargs=None):
         super().__init__()
         if context_backbone_kwargs is None:
@@ -68,6 +93,8 @@ class NERTagger(nn.Module):
         self.global_pooling = nn.AdaptiveMaxPool1d(1)
         self.out = nn.Conv1d(embedding_size, labels_num, 1)
         self.labels_num = labels_num
+        STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
+        self.crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
 
     def forward(self, tokens):
         """tokens - BatchSize x MaxSentenceLen x MaxTokenLen"""
@@ -89,3 +116,31 @@ class NERTagger(nn.Module):
         # set_trace()
         # nllh = self.crf(inputs=context_features.permute(0,2,1), tags=logits)
         return logits
+
+
+class POSTagger:
+    def __init__(self, model, char2id, id2label, max_sent_len, max_token_len):
+        self.model = model
+        self.char2id = char2id
+        self.id2label = id2label
+        self.max_sent_len = max_sent_len
+        self.max_token_len = max_token_len
+
+    def __call__(self, sentences):
+        tokenized_corpus = tokenize_corpus(sentences, min_token_size=1)
+
+        inputs = torch.zeros((len(sentences), self.max_sent_len, self.max_token_len + 2), dtype=torch.long)
+
+        for sent_i, sentence in enumerate(tokenized_corpus):
+            for token_i, token in enumerate(sentence):
+                for char_i, char in enumerate(token):
+                    inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
+
+        dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
+        predicted_probs = predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
+        predicted_classes = predicted_probs.argmax(1)
+
+        result = []
+        for sent_i, sent in enumerate(tokenized_corpus):
+            result.append([self.id2label[cls] for cls in predicted_classes[sent_i, :len(sent)]])
+        return result
