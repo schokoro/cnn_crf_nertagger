@@ -18,7 +18,7 @@ def copy_data_to_device(data, device):
     raise ValueError('Недопустимый тип данных {}'.format(type(data)))
 
 
-def train_eval_loop(model, train_dataset, val_dataset, tag2id,
+def train_eval_loop(model, train_dataset, val_dataset,
                     lr=1e-4, epoch_n=10, batch_size=32,
                     device=None, early_stopping_patience=10, l2_reg_alpha=0,
                     max_batches_per_epoch_train=10000,
@@ -31,6 +31,7 @@ def train_eval_loop(model, train_dataset, val_dataset, tag2id,
                     verbose_batch=False):
     """
     Цикл для обучения модели. После каждой эпохи качество модели оценивается по отложенной выборке.
+    :param verbose_batch:
     :param model: torch.nn.Module - обучаемая модель
     :param train_dataset: torch.utils.data.Dataset - данные для обучения
     :param val_dataset: torch.utils.data.Dataset - данные для оценки качества
