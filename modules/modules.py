@@ -5,6 +5,7 @@ from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
 from utils.pipeline import predict_with_model
 from utils.prepare import tokenize_corpus
+import numpy as np
 
 
 class StackedConv1d(nn.Module):
@@ -141,7 +142,7 @@ class NERTagger:
                     inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
-        predicted_classes = predict_with_model(self.model, dataset).int()  # SentenceN x TagsN x MaxSentLen
+        predicted_classes = predict_with_model(self.model, dataset).astype(np.int)  # SentenceN x TagsN x MaxSentLen
 
         result = []
         for sent_i, sent in enumerate(tokenized_corpus):
