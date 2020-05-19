@@ -1,5 +1,6 @@
 from typing import Tuple
 
+import spacy
 import torch
 from tqdm import tqdm
 
@@ -27,6 +28,11 @@ def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len
                 inputs[sent_i, token_i, char_i + 1] = char2id.get(char, 0)
 
     return inputs, targets
+
+
+def tokenize_corpus(texts):
+    nlp = spacy.load('en_coore_web_sm')
+    return [[token.text for token in nlp.tokenizer(text)] for text in texts]
 
 
 

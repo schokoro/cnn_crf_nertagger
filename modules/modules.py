@@ -3,8 +3,8 @@ from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
-import utils
-# from utils.pipeline import predict_with_model
+from utils.pipeline import predict_with_model
+from utils.prepare import tokenize_corpus
 
 
 class StackedConv1d(nn.Module):
@@ -120,10 +120,10 @@ class NERTaggerModel(nn.Module):
 
 
 class POSTagger:
-    def __init__(self, model, char2id, id2label, max_sent_len, max_token_len):
+    def __init__(self, model, char2id, id2tag, max_sent_len, max_token_len):
         self.model = model
         self.char2id = char2id
-        self.id2label = id2label
+        self.id2tag = id2tag
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
 
@@ -138,10 +138,10 @@ class POSTagger:
                     inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
-        predicted_probs = utils.pipeline.predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
+        predicted_probs = predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
         predicted_classes = predicted_probs.argmax(1)
 
         result = []
         for sent_i, sent in enumerate(tokenized_corpus):
-            result.append([self.id2label[cls] for cls in predicted_classes[sent_i, :len(sent)]])
+            result.append([self.id2tag[cls] for cls in predicted_classes[sent_i, :len(sent)]])
         return result
