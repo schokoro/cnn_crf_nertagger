@@ -31,7 +31,7 @@ def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len
 
 
 def tokenize_corpus(texts):
-    nlp = spacy.load('en_coore_web_sm')
+    nlp = spacy.load('en_core_web_sm')
     return [[token.text for token in nlp.tokenizer(text)] for text in texts]
 
 

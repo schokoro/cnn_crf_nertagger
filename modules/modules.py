@@ -120,6 +120,9 @@ class NERTaggerModel(nn.Module):
 
 
 class NERTagger:
+    """
+
+    """
     def __init__(self, model, char2id, id2tag, max_sent_len, max_token_len):
         self.model = model
         self.char2id = char2id
@@ -138,8 +141,7 @@ class NERTagger:
                     inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
-        predicted_probs = predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
-        predicted_classes = predicted_probs.argmax(1)
+        predicted_classes = predict_with_model(self.model, dataset).int()  # SentenceN x TagsN x MaxSentLen
 
         result = []
         for sent_i, sent in enumerate(tokenized_corpus):
