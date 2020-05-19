@@ -3,8 +3,8 @@ from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
-
-from utils.pipeline import predict_with_model
+import utils
+# from utils.pipeline import predict_with_model
 
 
 class StackedConv1d(nn.Module):
@@ -138,7 +138,7 @@ class POSTagger:
                     inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
-        predicted_probs = predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
+        predicted_probs = utils.pipeline.predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
         predicted_classes = predicted_probs.argmax(1)
 
         result = []
