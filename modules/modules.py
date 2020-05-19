@@ -2,6 +2,9 @@ from typing import Union, List, Dict, Tuple
 from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
+import torch
+
+from utils.pipeline import predict_with_model
 
 
 class StackedConv1d(nn.Module):
@@ -111,10 +114,8 @@ class NERTaggerModel(nn.Module):
                                                   self.embedding_size)  # BatchSize x MaxSentenceLen x EmbSize
         token_features = token_features.permute(0, 2, 1)  # BatchSize x EmbSize x MaxSentenceLen
         context_features = self.context_backbone(token_features)  # BatchSize x EmbSize x MaxSentenceLen
-
         logits = self.out(context_features)  # BatchSize x LabelsNum x MaxSentenceLen
-        # set_trace()
-        # nllh = self.crf(inputs=context_features.permute(0,2,1), tags=logits)
+
         return logits
 
 
