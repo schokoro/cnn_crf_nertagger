@@ -119,7 +119,7 @@ class NERTaggerModel(nn.Module):
         return logits
 
 
-class POSTagger:
+class NERTagger:
     def __init__(self, model, char2id, id2tag, max_sent_len, max_token_len):
         self.model = model
         self.char2id = char2id
@@ -128,7 +128,7 @@ class POSTagger:
         self.max_token_len = max_token_len
 
     def __call__(self, sentences):
-        tokenized_corpus = tokenize_corpus(sentences, min_token_size=1)
+        tokenized_corpus = tokenize_corpus(sentences)
 
         inputs = torch.zeros((len(sentences), self.max_sent_len, self.max_token_len + 2), dtype=torch.long)
 
