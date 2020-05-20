@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+from torch.nn import Module
 from torch.utils.data import DataLoader
 from pdb import set_trace
 
@@ -18,7 +19,7 @@ def copy_data_to_device(data, device):
     raise ValueError('Недопустимый тип данных {}'.format(type(data)))
 
 
-def train_eval_loop(model, train_dataset, val_dataset,
+def train_eval_loop(model: Module, train_dataset, val_dataset,
                     lr=1e-4, epoch_n=10, batch_size=32,
                     device=None, early_stopping_patience=10, l2_reg_alpha=0,
                     max_batches_per_epoch_train=10000,
@@ -28,7 +29,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
                     lr_scheduler_ctor=None,
                     shuffle_train=True,
                     dataloader_workers_n=0,
-                    verbose_batch=False):
+                    verbose_batch=False) -> Tuple[float, Module, Dict[str, List[float]]]:
     """
     Цикл для обучения модели. После каждой эпохи качество модели оценивается по отложенной выборке.
     :param verbose_batch:
@@ -80,6 +81,9 @@ def train_eval_loop(model, train_dataset, val_dataset,
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
 
+    train_loss = []
+    val_loss = []
+
     for epoch_i in range(epoch_n):
         try:
             epoch_start = datetime.datetime.now()
@@ -118,6 +122,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
             print('Эпоха: {} итераций, {:0.2f} сек'.format(train_batches_n,
                                                            (datetime.datetime.now() - epoch_start).total_seconds()))
             print('Среднее значение функции потерь на обучении', mean_train_loss)
+            train_loss.append(mean_train_loss)
 
             model.eval()
             mean_val_loss = 0
@@ -142,6 +147,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
 
             mean_val_loss /= val_batches_n
             print('Среднее значение функции потерь на валидации', mean_val_loss)
+            val_loss.append(mean_val_loss)
 
             if mean_val_loss < best_val_loss:
                 best_epoch_i = epoch_i
@@ -164,7 +170,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
             print('Ошибка при обучении: {}\n{}'.format(ex, traceback.format_exc()))
             break
 
-    return best_val_loss, best_model
+    return best_val_loss, best_model, {'train_loss': train_loss, 'val_loss': val_loss}
 
 
 def paths_to_tensor(batch_pred_paths, size) -> torch.Tensor:
