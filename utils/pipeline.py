@@ -101,7 +101,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
                 # set_trace()
                 pred = model(batch_x)
 
-                loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask)
+                loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask) / batch_size
                 # loss = criterion(pred, batch_y)
 
                 model.zero_grad()
@@ -135,7 +135,7 @@ def train_eval_loop(model, train_dataset, val_dataset,
                     mask = copy_data_to_device(mask, device)
 
                     pred = model(batch_x)
-                    loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask)
+                    loss = -model.crf(pred.permute(0, 2, 1), batch_y, mask) / batch_size
 
                     mean_val_loss += float(loss)
                     val_batches_n += 1

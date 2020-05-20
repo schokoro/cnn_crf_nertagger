@@ -3,22 +3,26 @@ from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
-import utils
-# from utils.pipeline import predict_with_model
+from youtokentome import BPE
+
+from utils.pipeline import predict_with_model
+from utils.prepare import tokenize_corpus
+import numpy as np
 
 
 class StackedConv1d(nn.Module):
+    """
+    Базовый свёрточный модуль для NERTaggerModel
+    """
     def __init__(self, features_num, layers_n=1,
                  kernel_size: Union[List[int], int] = 3,
-                 conv_layer: nn.Module = nn.Conv1d,
                  dropout: float = 0.0,
                  dilation: Union[List[int], type(None)] = None):
         """
 
         :param features_num:
-        :param layers_n:
+        :param layers_n: int количество свёрточных слоёв
         :param kernel_size:
-        :param conv_layer:
         :param dropout:
         :param dilation:
         """
@@ -42,7 +46,7 @@ class StackedConv1d(nn.Module):
                 raise TypeError
 
             layers.append(nn.Sequential(
-                conv_layer(
+                nn.Conv1d(
                     features_num, features_num, l_kernel_size,
                     padding=(l_kernel_size - 1) * l_dilation // 2, dilation=l_dilation
                 ),
@@ -62,20 +66,19 @@ class StackedConv1d(nn.Module):
 
 def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
     """
-
+    Возвращает список допустимых переходов из тега в тег для CRF
     :param tag2id:
     :return:
     """
     str_transitions_constraints = [
         ('<NOTAG>', '<NOTAG>'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
-        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'),
-        ('I-LOC', 'I-LOC'), ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'),
-        ('I-LOC', 'O'), ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'),
-        ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'), ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'),
-        ('I-MISC', 'I-PER'), ('I-MISC', 'O'), ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'),
-        ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'), ('I-ORG', 'I-MISC'),
-        ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'), ('I-PER', '<NOTAG>'),
-        ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
+        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'), ('I-LOC', 'I-LOC'),
+        ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'), ('I-LOC', 'O'),
+        ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'), ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'),
+        ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'), ('I-MISC', 'I-PER'), ('I-MISC', 'O'),
+        ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'), ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'),
+        ('I-ORG', 'I-MISC'), ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'),
+        ('I-PER', '<NOTAG>'), ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
         ('I-PER', 'I-MISC'), ('I-PER', 'I-ORG'), ('I-PER', 'I-PER'), ('I-PER', 'O'),
         ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
         ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
@@ -100,7 +103,11 @@ class NERTaggerModel(nn.Module):
         self.crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
 
     def forward(self, tokens):
-        """tokens - BatchSize x MaxSentenceLen x MaxTokenLen"""
+        """
+
+        :param tokens: BatchSize x MaxSentenceLen x MaxTokenLen
+        :return:
+        """
         batch_size, max_sent_len, max_token_len = tokens.shape
         tokens_flat = tokens.view(batch_size * max_sent_len, max_token_len)
 
@@ -119,29 +126,42 @@ class NERTaggerModel(nn.Module):
         return logits
 
 
-class POSTagger:
-    def __init__(self, model, char2id, id2label, max_sent_len, max_token_len):
+class NERTagger:
+    """
+
+    """
+    def __init__(self, model: NERTaggerModel, tokenizer: BPE, id2tag: dict, max_sent_len: int,
+                 max_token_len: int, dropout: float = 0):
+        """
+
+        :param model:
+        :param tokenizer:
+        :param id2tag:
+        :param max_sent_len:
+        :param max_token_len:
+        """
         self.model = model
-        self.char2id = char2id
-        self.id2label = id2label
+        self.tokenizer = tokenizer
+        self.id2tag = id2tag
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
+        self.dropout = dropout
 
     def __call__(self, sentences):
-        tokenized_corpus = tokenize_corpus(sentences, min_token_size=1)
+        tokenized_corpus = tokenize_corpus(sentences)
 
         inputs = torch.zeros((len(sentences), self.max_sent_len, self.max_token_len + 2), dtype=torch.long)
 
         for sent_i, sentence in enumerate(tokenized_corpus):
             for token_i, token in enumerate(sentence):
-                for char_i, char in enumerate(token):
-                    inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
+                token_pieces = self.tokenizer.encode(token, dropout_prob=self.dropout)
+                for piece_i, piece in enumerate(token_pieces):
+                    inputs[sent_i, token_i, piece_i + 1] = piece
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
-        predicted_probs = utils.pipeline.predict_with_model(self.model, dataset)  # SentenceN x TagsN x MaxSentLen
-        predicted_classes = predicted_probs.argmax(1)
+        predicted_classes = predict_with_model(self.model, dataset).astype(np.int)
 
         result = []
         for sent_i, sent in enumerate(tokenized_corpus):
-            result.append([self.id2label[cls] for cls in predicted_classes[sent_i, :len(sent)]])
+            result.append([self.id2tag[cls] for cls in predicted_classes[sent_i, :len(sent)]])
         return result
