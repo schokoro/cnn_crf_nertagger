@@ -1,8 +1,22 @@
-from typing import Tuple, Union
-
+from typing import Tuple, Union, List
+import youtokentome as yttm
 import spacy
 import torch
 from tqdm import tqdm
+from allennlp.data.instance import Instance
+
+
+def make_yttm_tokenizer(train_conll: List[Instance], chunk_size=200, vocab_size=400):
+    tokens = []
+    for instance in train_conll:
+        tokens += [token.text for token in instance['tokens']]
+    text = ' '.join(tokens)
+
+    chunks = [text[start: start + chunk_size] + '\n' for start in range(0, len(text), chunk_size // 2)]
+    with open('./data/train_chunks.txt', 'w') as fobj:
+        fobj.writelines(chunks)
+    yttm.BPE.train(data='./data/train_chunks.txt', vocab_size=vocab_size, model='conll_model.yttm')
+    return yttm.BPE('conll_model.yttm')
 
 
 def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len,
