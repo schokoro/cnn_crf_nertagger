@@ -13,19 +13,19 @@ def make_yttm_tokenizer(train_conll: List[Instance], chunk_size=200, vocab_size=
     text = ' '.join(tokens)
 
     chunks = [text[start: start + chunk_size] + '\n' for start in range(0, len(text), chunk_size // 2)]
-    with open('./data/train_chunks.txt', 'w') as fobj:
+    with open('train_chunks.txt', 'w') as fobj:
         fobj.writelines(chunks)
-    yttm.BPE.train(data='./data/train_chunks.txt', vocab_size=vocab_size, model='conll_model.yttm')
+    yttm.BPE.train(data='train_chunks.txt', vocab_size=vocab_size, model='conll_model.yttm')
     return yttm.BPE('conll_model.yttm')
 
 
-def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len,
+def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
                          augm: Union[int, type(None)] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """
 
     :param augm:
     :param sentences:
-    :param char2id:
+    :param tokenizer:
     :param tag2id:
     :param max_sent_len:
     :param max_token_len:
@@ -41,8 +41,9 @@ def tag_corpus_to_tensor(sentences, char2id, tag2id, max_sent_len, max_token_len
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
             targets[sent_i, token_i] = tag2id[sent['tags'][token_i]]
-            for char_i, char in enumerate(token.text):
-                inputs[sent_i, token_i, char_i + 1] = char2id.get(char, 0)
+            token_pieces = tokenizer.encode(token.text, dropout_prob=0.2)
+            for piece_i, piece in enumerate(token_pieces):
+                inputs[sent_i, token_i, piece_i + 1] = piece
 
     if augm:
         targ_idx = torch.zeros(targets.shape)
