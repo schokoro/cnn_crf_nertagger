@@ -6,23 +6,23 @@ from tqdm import tqdm
 from allennlp.data.instance import Instance
 
 
-def make_yttm_tokenizer(train_conll: List[Instance], chunk_size=200, vocab_size=400):
+def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
     tokens = []
     for instance in train_conll:
         tokens += [token.text for token in instance['tokens']]
     text = ' '.join(tokens)
 
-    chunks = [text[start: start + chunk_size] + '\n' for start in range(0, len(text), chunk_size // 2)]
     with open('train_chunks.txt', 'w') as fobj:
-        fobj.writelines(chunks)
+        fobj.write(text)
     yttm.BPE.train(data='train_chunks.txt', vocab_size=vocab_size, model='conll_model.yttm')
     return yttm.BPE('conll_model.yttm')
 
 
 def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
-                         augm: Union[int, type(None)] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+                         augm: Union[int, type(None)] = None, dropout=0) -> Tuple[torch.Tensor, torch.Tensor]:
     """
 
+    :param dropout:
     :param augm:
     :param sentences:
     :param tokenizer:
@@ -41,7 +41,7 @@ def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_l
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
             targets[sent_i, token_i] = tag2id[sent['tags'][token_i]]
-            token_pieces = tokenizer.encode(token.text, dropout_prob=0.2)
+            token_pieces = tokenizer.encode(token.text, dropout_prob=dropout)
             for piece_i, piece in enumerate(token_pieces):
                 inputs[sent_i, token_i, piece_i + 1] = piece
 
