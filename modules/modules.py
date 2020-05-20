@@ -154,7 +154,7 @@ class NERTagger:
 
         for sent_i, sentence in enumerate(tokenized_corpus):
             for token_i, token in enumerate(sentence):
-                token_pieces = self.tokenizer.encode(token.text, dropout_prob=dropout)
+                token_pieces = self.tokenizer.encode(token, dropout_prob=self.dropout)
                 for piece_i, piece in enumerate(token_pieces):
                     inputs[sent_i, token_i, piece_i + 1] = piece
 
