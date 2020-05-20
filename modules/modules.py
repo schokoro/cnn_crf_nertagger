@@ -3,6 +3,8 @@ from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
 import torch
+from youtokentome import BPE
+
 from utils.pipeline import predict_with_model
 from utils.prepare import tokenize_corpus
 import numpy as np
@@ -128,20 +130,22 @@ class NERTagger:
     """
 
     """
-    def __init__(self, model: NERTaggerModel, char2id: dict, id2tag: dict, max_sent_len: int, max_token_len: int):
+    def __init__(self, model: NERTaggerModel, tokenizer: BPE, id2tag: dict, max_sent_len: int,
+                 max_token_len: int, dropout: float = 0):
         """
 
         :param model:
-        :param char2id:
+        :param tokenizer:
         :param id2tag:
         :param max_sent_len:
         :param max_token_len:
         """
         self.model = model
-        self.char2id = char2id
+        self.tokenizer = tokenizer
         self.id2tag = id2tag
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
+        self.dropout = dropout
 
     def __call__(self, sentences):
         tokenized_corpus = tokenize_corpus(sentences)
@@ -150,8 +154,9 @@ class NERTagger:
 
         for sent_i, sentence in enumerate(tokenized_corpus):
             for token_i, token in enumerate(sentence):
-                for char_i, char in enumerate(token):
-                    inputs[sent_i, token_i, char_i + 1] = self.char2id.get(char, 0)
+                token_pieces = self.tokenizer.encode(token.text, dropout_prob=dropout)
+                for piece_i, piece in enumerate(token_pieces):
+                    inputs[sent_i, token_i, piece_i + 1] = piece
 
         dataset = TensorDataset(inputs, torch.zeros(len(sentences)))
         predicted_classes = predict_with_model(self.model, dataset).astype(np.int)
