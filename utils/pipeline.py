@@ -222,3 +222,5 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
         return np.concatenate(results_by_batch, 0), np.concatenate(labels, 0)
     else:
         return np.concatenate(results_by_batch, 0)
+
+

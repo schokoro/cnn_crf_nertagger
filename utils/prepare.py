@@ -1,9 +1,12 @@
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Dict
 import youtokentome as yttm
 import spacy
 import torch
 from tqdm import tqdm
 from allennlp.data.instance import Instance
+import numpy as np
+from ipymarkup import show_box_markup
+# from ipymarkup.palette import palette, PALETTE, BLUE, RED, GREEN, PURPLE, BROWN, ORANGE, PURPLE
 
 
 def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
@@ -64,3 +67,44 @@ def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_l
 def tokenize_corpus(texts):
     nlp = spacy.load('en_core_web_sm')
     return [[token.text for token in nlp.tokenizer(text)] for text in texts]
+
+
+def tensor_to_tags(tens: Union[torch.Tensor, np.ndarray], id2tag:Dict[int, str]) -> List[List[str]]:
+    """
+    Преобразует тензор с айдишниками тегов в список списков тегов
+    :param tens: входной тензор
+    :param id2tag: словарь id -> тег
+    :return: список со списками тегов для каждого предложения
+    [['O', 'O', 'I-PER', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O'],
+    ['B-PER', 'I-PER'],
+    ['I-LOC', 'O', 'B-ORG', 'I-ORG', 'I-ORG', 'O']]
+    """
+    if type(tens) is torch.Tensor:
+        tens = tens.numpy()
+    n_sents, n_tokens = tens.shape
+    labels = []
+    for i in range(n_sents):
+        sent_labels = []
+        for j in range(n_tokens):
+            if tens[i, j] != 0:
+                sent_labels.append(id2tag[tens[i, j]])
+        labels.append(sent_labels)
+    return labels
+
+
+def highlight_text(tokens: List[str], tags: List[str]):
+    """
+    Выводит на печать текст с подсветкой тегов
+    :param tokens: список токенов
+    :param tags: список тегов
+    :return:
+    """
+    assert len(tokens) == len(tags)
+    spans = []
+    start = 0
+    for i in range(len(tokens)):
+        len_token = len(tokens[i])
+        spans.append((start, start + len_token, tags[i]))
+        start += len_token + 1
+    text = ' '.join(tokens)
+    show_box_markup(text, spans)
