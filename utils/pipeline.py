@@ -2,11 +2,12 @@ import copy
 import datetime
 import traceback
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import torch
 from torch.nn import Module
+from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from pdb import set_trace
 
@@ -24,13 +25,15 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
                     device=None, early_stopping_patience: int = 10, l2_reg_alpha: float = 0,
                     max_batches_per_epoch_train: int = 10000,
                     max_batches_per_epoch_val: int = 1000,
-                    optimizer_ctor=None,
+                    optimizer_ctor: Optimizer = None,
                     lr_scheduler_ctor=None,
                     shuffle_train=True,
-                    dataloader_workers_n=0,
-                    verbose_batch=False) -> Tuple[float, Module, Dict[str, List[float]]]:
+                    dataloader_workers_n: int = 0,
+                    verbose_batch: bool = False,
+                    prev_loss: Dict[str, List[float]] = {}) -> Tuple[float, Module, Dict[str, List[float]]]:
     """
     Цикл для обучения модели. После каждой эпохи качество модели оценивается по отложенной выборке.
+    :param prev_loss: лоссы от предыдущего цикла обучения
     :param verbose_batch:
     :param model: torch.nn.Module - обучаемая модель
     :param train_dataset: torch.utils.data.Dataset - данные для обучения
@@ -77,9 +80,8 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
     best_val_loss = float('inf')
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
-
-    train_loss = []
-    val_loss = []
+    train_loss = prev_loss.get('train_loss', [])
+    val_loss = prev_loss.get('val_loss', [])
 
     for epoch_i in range(epoch_n):
         try:
