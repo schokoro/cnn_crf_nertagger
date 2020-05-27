@@ -74,16 +74,16 @@ def get_state_transitions_constraints(vocab: Vocabulary) -> List[Tuple[int, int]
     :return:
     """
     str_transitions_constraints = [
-        ('<NOTAG>', '<NOTAG>'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
-        ('I-LOC', '<NOTAG>'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'), ('I-LOC', 'I-LOC'),
+        ('[PAD]', '[PAD]'), ('B-LOC', 'I-LOC'), ('B-MISC', 'I-MISC'), ('B-ORG', 'I-ORG'),
+        ('I-LOC', '[PAD]'), ('I-LOC', 'B-LOC'), ('I-LOC', 'B-MISC'), ('I-LOC', 'B-ORG'), ('I-LOC', 'I-LOC'),
         ('I-LOC', 'I-MISC'), ('I-LOC', 'I-ORG'), ('I-LOC', 'I-PER'), ('I-LOC', 'O'),
-        ('I-MISC', '<NOTAG>'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'), ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'),
+        ('I-MISC', '[PAD]'), ('I-MISC', 'B-LOC'), ('I-MISC', 'B-MISC'), ('I-MISC', 'B-ORG'), ('I-MISC', 'I-LOC'),
         ('I-MISC', 'I-MISC'), ('I-MISC', 'I-ORG'), ('I-MISC', 'I-PER'), ('I-MISC', 'O'),
-        ('I-ORG', '<NOTAG>'), ('I-ORG', 'B-LOC'), ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'),
+        ('I-ORG', '[PAD]'), ('I-ORG', 'B-LOC'), ('I-ORG', 'B-MISC'), ('I-ORG', 'B-ORG'), ('I-ORG', 'I-LOC'),
         ('I-ORG', 'I-MISC'), ('I-ORG', 'I-ORG'), ('I-ORG', 'I-PER'), ('I-ORG', 'O'),
-        ('I-PER', '<NOTAG>'), ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
+        ('I-PER', '[PAD]'), ('I-PER', 'B-LOC'), ('I-PER', 'B-MISC'), ('I-PER', 'B-ORG'), ('I-PER', 'I-LOC'),
         ('I-PER', 'I-MISC'), ('I-PER', 'I-ORG'), ('I-PER', 'I-PER'), ('I-PER', 'O'),
-        ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
+        ('O', '[PAD]'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
         ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
     ]
     return [(vocab.get_token_index(pair[0], 'labels'), vocab.get_token_index(pair[1], 'labels')) for pair \
