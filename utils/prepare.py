@@ -37,7 +37,7 @@ class ConllDataset(Dataset):
     def __getitem__(self, item):
         sent = self.instances[item]
         inputs = torch.zeros((self.max_sent_len, self.max_token_len + 2), dtype=torch.long)  # [max_sent_len x max_token_len + 2]
-        targets = torch.zeros(self.max_sent_len, dtype=torch.long)  # [max_sent_len]
+        targets = torch.ones(self.max_sent_len, dtype=torch.long) * self.vocab.get_token_index('[PAD]', 'labels') # [max_sent_len]
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
             targets[token_i] = self.vocab.get_token_index(sent['tags'][token_i], 'labels')

@@ -1,4 +1,6 @@
 from typing import Union, List, Dict, Tuple
+
+from allennlp.data import Vocabulary
 from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
@@ -130,7 +132,7 @@ class NERTagger:
     """
 
     """
-    def __init__(self, model: NERTaggerModel, tokenizer: BPE, id2tag: dict, max_sent_len: int,
+    def __init__(self, model: NERTaggerModel, tokenizer: BPE, vocab: Vocabulary, max_sent_len: int,
                  max_token_len: int, dropout: float = 0):
         """
 
@@ -142,12 +144,13 @@ class NERTagger:
         """
         self.model = model
         self.tokenizer = tokenizer
-        self.id2tag = id2tag
+        self.vocab = vocab
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
         self.dropout = dropout
 
     def __call__(self, sentences):
+        # TODO заменить tag2id на vocab
         tokenized_corpus = tokenize_corpus(sentences)
 
         inputs = torch.zeros((len(sentences), self.max_sent_len, self.max_token_len + 2), dtype=torch.long)

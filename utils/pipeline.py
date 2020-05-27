@@ -7,7 +7,8 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 import torch
 from torch.nn import Module
-from torch.optim import Optimizer
+from torch.optim.optimizer import Optimizer
+
 from torch.utils.data import DataLoader, Dataset
 from pdb import set_trace
 
