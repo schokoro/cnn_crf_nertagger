@@ -81,7 +81,7 @@ def tensor_to_tags(tens: Union[torch.Tensor, np.ndarray], vocab: Vocabulary) -> 
     for i in range(n_sents):
         sent_labels = []
         for j in range(n_tokens):
-            if tens[i, j] != 0:
+            if tens[i, j] != vocab.get_token_index('[PAD]', 'labels'):
                 sent_labels.append(vocab.get_token_from_index(tens[i, j], 'labels'))
         labels.append(sent_labels)
     return labels
