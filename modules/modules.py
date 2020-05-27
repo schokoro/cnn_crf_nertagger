@@ -91,7 +91,7 @@ def get_state_transitions_constraints(vocab: Vocabulary) -> List[Tuple[int, int]
 
 
 class NERTaggerModel(nn.Module):
-    def __init__(self, vocab_size, labels_num, vocab: Vocabulary, embedding_size=32, single_backbone_kwargs={},
+    def __init__(self, vocab_size, vocab: Vocabulary, embedding_size=32, single_backbone_kwargs={},
                  context_backbone_kwargs=None):
         super().__init__()
         if context_backbone_kwargs is None:
@@ -101,8 +101,8 @@ class NERTaggerModel(nn.Module):
         self.single_token_backbone = StackedConv1d(embedding_size, **single_backbone_kwargs)
         self.context_backbone = StackedConv1d(embedding_size, **context_backbone_kwargs)
         self.global_pooling = nn.AdaptiveMaxPool1d(1)
-        self.out = nn.Conv1d(embedding_size, labels_num, 1)
-        self.labels_num = labels_num
+        self.labels_num = vocab.get_vocab_size('labels')
+        self.out = nn.Conv1d(embedding_size, self.labels_num, 1)
         STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(vocab)
         self.crf = ConditionalRandomField(vocab.get_vocab_size('labels'), constraints=STATE_TRANSITIONS_CONSTRAINTS)
 
