@@ -16,6 +16,7 @@ class StackedConv1d(nn.Module):
     """
     Базовый свёрточный модуль для NERTaggerModel
     """
+
     def __init__(self, features_num, layers_n=1,
                  kernel_size: Union[List[int], int] = 3,
                  dropout: float = 0.0,
@@ -66,7 +67,7 @@ class StackedConv1d(nn.Module):
         return x
 
 
-def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int, int]]:
+def get_state_transitions_constraints(vocab: Vocabulary) -> List[Tuple[int, int]]:
     """
     Возвращает список допустимых переходов из тега в тег для CRF
     :param tag2id:
@@ -85,11 +86,12 @@ def get_state_transitions_constraints(tag2id: Dict[str, int]) -> List[Tuple[int,
         ('O', '<NOTAG>'), ('O', 'B-LOC'), ('O', 'B-MISC'), ('O', 'B-ORG'), ('O', 'I-LOC'),
         ('O', 'I-MISC'), ('O', 'I-ORG'), ('O', 'I-PER'), ('O', 'O')
     ]
-    return [(tag2id[pair[0]], tag2id[pair[1]]) for pair in str_transitions_constraints]
+    return [(vocab.get_token_index(pair[0], 'labels'), vocab.get_token_index(pair[1], 'labels')) for pair \
+            in str_transitions_constraints]
 
 
 class NERTaggerModel(nn.Module):
-    def __init__(self, vocab_size, labels_num, tag2id, embedding_size=32, single_backbone_kwargs={},
+    def __init__(self, vocab_size, labels_num, vocab: Vocabulary, embedding_size=32, single_backbone_kwargs={},
                  context_backbone_kwargs=None):
         super().__init__()
         if context_backbone_kwargs is None:
@@ -101,8 +103,8 @@ class NERTaggerModel(nn.Module):
         self.global_pooling = nn.AdaptiveMaxPool1d(1)
         self.out = nn.Conv1d(embedding_size, labels_num, 1)
         self.labels_num = labels_num
-        STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
-        self.crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
+        STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(vocab)
+        self.crf = ConditionalRandomField(vocab.get_vocab_size('labels'), constraints=STATE_TRANSITIONS_CONSTRAINTS)
 
     def forward(self, tokens):
         """
@@ -132,6 +134,7 @@ class NERTagger:
     """
 
     """
+
     def __init__(self, model: NERTaggerModel, tokenizer: BPE, vocab: Vocabulary, max_sent_len: int,
                  max_token_len: int, dropout: float = 0):
         """
