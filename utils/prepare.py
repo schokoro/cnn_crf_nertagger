@@ -2,11 +2,35 @@ from typing import Tuple, Union, List, Dict
 import youtokentome as yttm
 import spacy
 import torch
+from torch.utils.data import Dataset
 from tqdm import tqdm
 from allennlp.data.instance import Instance
 import numpy as np
 from ipymarkup import show_box_markup
 # from ipymarkup.palette import palette, PALETTE, BLUE, RED, GREEN, PURPLE, BROWN, ORANGE, PURPLE
+
+
+class ConllDataset(Dataset):
+
+    def __init__(self, instances, tokenizer, tag2id, max_sent_len, max_token_len, augm=0, dropout=0):
+        self.instances = instances
+        self.tokenizer = tokenizer
+        self.tag2id = tag2id
+        self.max_sent_len = max_sent_len
+        self.max_token_len = max_token_len
+        self.augm = augm
+        self.dropout = dropout
+        if augm > 0:
+
+
+
+
+    def __len__(self):
+        return len(self.instances)
+
+    def __getitem__(self, item):
+        self.instances[item]
+        result = torch.zeros()
 
 
 def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
