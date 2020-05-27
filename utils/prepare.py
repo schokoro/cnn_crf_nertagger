@@ -7,13 +7,13 @@ from tqdm import tqdm
 from allennlp.data.instance import Instance
 import numpy as np
 from ipymarkup import show_box_markup
+from youtokentome import BPE
 
 
 class ConllDataset(Dataset):
 
-    def __init__(self, instances: List[Instance], tokenizer, tag2id: Dict, max_sent_len: int, max_token_len, augm=0,
-                 dropout=0):
-        self.instances = instances
+    def __init__(self, instances: List[Instance], tokenizer: BPE, tag2id: Dict[str, int],
+                 max_sent_len: int, max_token_len: int, augm: int = 0, dropout: float = 0):
         self.tokenizer = tokenizer
         self.tag2id = tag2id
         self.max_sent_len = max_sent_len
@@ -28,6 +28,7 @@ class ConllDataset(Dataset):
                 if tags.intersection(b_tags):
                     add_instances += [instance] * augm
             instances += add_instances
+        self.instances = instances
 
     def __len__(self):
         return len(self.instances)
