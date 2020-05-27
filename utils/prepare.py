@@ -2,6 +2,7 @@ from typing import Tuple, Union, List, Dict
 import youtokentome as yttm
 import spacy
 import torch
+from allennlp.data import Vocabulary
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from allennlp.data.instance import Instance
@@ -12,10 +13,10 @@ from youtokentome import BPE
 
 class ConllDataset(Dataset):
 
-    def __init__(self, instances: List[Instance], tokenizer: BPE, tag2id: Dict[str, int],
+    def __init__(self, instances: List[Instance], tokenizer: BPE, vocab: Vocabulary,
                  max_sent_len: int, max_token_len: int, augm: int = 0, dropout: float = 0):
         self.tokenizer = tokenizer
-        self.tag2id = tag2id
+        self.vocab = vocab
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
         self.augm = augm
@@ -39,7 +40,7 @@ class ConllDataset(Dataset):
         targets = torch.zeros(self.max_sent_len, dtype=torch.long)  # [max_sent_len]
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
-            targets[token_i] = self.tag2id[sent['tags'][token_i]]
+            targets[token_i] = self.vocab.get_token_index(sent['tags'][token_i], 'labels')
             token_pieces = self.tokenizer.encode(token.text, dropout_prob=self.dropout)
             for piece_i, piece in enumerate(token_pieces):
                 inputs[token_i, piece_i + 1] = piece
@@ -58,47 +59,47 @@ def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
     return yttm.BPE('conll_model.yttm')
 
 
-def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
-                         augm: Union[int, type(None)] = None, dropout=0) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-
-    :param dropout:
-    :param augm:
-    :param sentences:
-    :param tokenizer:
-    :param tag2id:
-    :param max_sent_len:
-    :param max_token_len:
-    :return inputs, targets: тензоры данных и таргет
-    inputs [ len_corpus x max_sent_len x max_token_len + 2 ]
-    targets [ len_corpus x max_sent_len ]
-    """
-
-    inputs = torch.zeros((len(sentences), max_sent_len, max_token_len + 2), dtype=torch.long)
-    targets = torch.zeros((len(sentences), max_sent_len), dtype=torch.long)
-
-    for sent_i, sent in tqdm(enumerate(sentences), total=len(sentences)):
-        assert len(sent['tokens']) == len(sent['tags'])
-        for token_i, token in enumerate(sent['tokens']):
-            targets[sent_i, token_i] = tag2id[sent['tags'][token_i]]
-            token_pieces = tokenizer.encode(token.text, dropout_prob=dropout)
-            for piece_i, piece in enumerate(token_pieces):
-                inputs[sent_i, token_i, piece_i + 1] = piece
-
-    if augm:
-        targ_idx = torch.zeros(targets.shape)
-        for tag in ['B-LOC', 'B-MISC', 'B-ORG']:
-            targ_idx += targets == tag2id[tag]
-        targ_idx = targ_idx.int().sum(dim=1)
-        augm_target = targets[targ_idx > 0]
-        augm_target = augm_target.repeat(augm, 1)
-        targets = torch.cat([targets, augm_target], dim=0)
-
-        augm_inputs = inputs[targ_idx > 0]
-        augm_inputs = augm_inputs.repeat(augm, 1, 1)
-        inputs = torch.cat([inputs, augm_inputs], dim=0)
-
-    return inputs, targets
+# def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
+#                          augm: Union[int, type(None)] = None, dropout=0) -> Tuple[torch.Tensor, torch.Tensor]:
+#     """
+#
+#     :param dropout:
+#     :param augm:
+#     :param sentences:
+#     :param tokenizer:
+#     :param tag2id:
+#     :param max_sent_len:
+#     :param max_token_len:
+#     :return inputs, targets: тензоры данных и таргет
+#     inputs [ len_corpus x max_sent_len x max_token_len + 2 ]
+#     targets [ len_corpus x max_sent_len ]
+#     """
+#
+#     inputs = torch.zeros((len(sentences), max_sent_len, max_token_len + 2), dtype=torch.long)
+#     targets = torch.zeros((len(sentences), max_sent_len), dtype=torch.long)
+#
+#     for sent_i, sent in tqdm(enumerate(sentences), total=len(sentences)):
+#         assert len(sent['tokens']) == len(sent['tags'])
+#         for token_i, token in enumerate(sent['tokens']):
+#             targets[sent_i, token_i] = tag2id[sent['tags'][token_i]]
+#             token_pieces = tokenizer.encode(token.text, dropout_prob=dropout)
+#             for piece_i, piece in enumerate(token_pieces):
+#                 inputs[sent_i, token_i, piece_i + 1] = piece
+#
+#     if augm:
+#         targ_idx = torch.zeros(targets.shape)
+#         for tag in ['B-LOC', 'B-MISC', 'B-ORG']:
+#             targ_idx += targets == tag2id[tag]
+#         targ_idx = targ_idx.int().sum(dim=1)
+#         augm_target = targets[targ_idx > 0]
+#         augm_target = augm_target.repeat(augm, 1)
+#         targets = torch.cat([targets, augm_target], dim=0)
+#
+#         augm_inputs = inputs[targ_idx > 0]
+#         augm_inputs = augm_inputs.repeat(augm, 1, 1)
+#         inputs = torch.cat([inputs, augm_inputs], dim=0)
+#
+#     return inputs, targets
 
 
 def tokenize_corpus(texts):
