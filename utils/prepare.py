@@ -35,14 +35,15 @@ class ConllDataset(Dataset):
 
     def __getitem__(self, item):
         sent = self.instances[item]
-        inputs = torch.zeros((self.max_sent_len, self.max_token_len + 2), dtype=torch.long)
-        targets = torch.zeros(self.max_sent_len, dtype=torch.long)
+        inputs = torch.zeros((self.max_sent_len, self.max_token_len + 2), dtype=torch.long)  # [max_sent_len x max_token_len + 2]
+        targets = torch.zeros(self.max_sent_len, dtype=torch.long)  # [max_sent_len]
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
             targets[token_i] = self.tag2id[sent['tags'][token_i]]
             token_pieces = self.tokenizer.encode(token.text, dropout_prob=self.dropout)
             for piece_i, piece in enumerate(token_pieces):
                 inputs[token_i, piece_i + 1] = piece
+        return inputs, targets
 
 
 def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
