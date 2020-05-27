@@ -6,3 +6,4 @@ pandas
 seaborn
 jupyterlab
 scikit-learn
+ipymarkup

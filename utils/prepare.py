@@ -7,12 +7,12 @@ from tqdm import tqdm
 from allennlp.data.instance import Instance
 import numpy as np
 from ipymarkup import show_box_markup
-# from ipymarkup.palette import palette, PALETTE, BLUE, RED, GREEN, PURPLE, BROWN, ORANGE, PURPLE
 
 
 class ConllDataset(Dataset):
 
-    def __init__(self, instances, tokenizer, tag2id, max_sent_len, max_token_len, augm=0, dropout=0):
+    def __init__(self, instances: List[Instance], tokenizer, tag2id: Dict, max_sent_len: int, max_token_len, augm=0,
+                 dropout=0):
         self.instances = instances
         self.tokenizer = tokenizer
         self.tag2id = tag2id
@@ -21,16 +21,27 @@ class ConllDataset(Dataset):
         self.augm = augm
         self.dropout = dropout
         if augm > 0:
-
-
-
+            add_instances = []
+            b_tags = {'B-MISC', 'B-LOC', 'B-ORG'}
+            for instance in instances:
+                tags = set(instance['tags'])
+                if tags.intersection(b_tags):
+                    add_instances += [instance] * augm
+            instances += add_instances
 
     def __len__(self):
         return len(self.instances)
 
     def __getitem__(self, item):
-        self.instances[item]
-        result = torch.zeros()
+        sent = self.instances[item]
+        inputs = torch.zeros((self.max_sent_len, self.max_token_len + 2), dtype=torch.long)
+        targets = torch.zeros(self.max_sent_len, dtype=torch.long)
+        assert len(sent['tokens']) == len(sent['tags'])
+        for token_i, token in enumerate(sent['tokens']):
+            targets[token_i] = self.tag2id[sent['tags'][token_i]]
+            token_pieces = self.tokenizer.encode(token.text, dropout_prob=self.dropout)
+            for piece_i, piece in enumerate(token_pieces):
+                inputs[token_i, piece_i + 1] = piece
 
 
 def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
@@ -93,7 +104,7 @@ def tokenize_corpus(texts):
     return [[token.text for token in nlp.tokenizer(text)] for text in texts]
 
 
-def tensor_to_tags(tens: Union[torch.Tensor, np.ndarray], id2tag:Dict[int, str]) -> List[List[str]]:
+def tensor_to_tags(tens: Union[torch.Tensor, np.ndarray], id2tag: Dict[int, str]) -> List[List[str]]:
     """
     Преобразует тензор с айдишниками тегов в список списков тегов
     :param tens: входной тензор

@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from pdb import set_trace
 
 
@@ -19,12 +19,11 @@ def copy_data_to_device(data, device):
     raise ValueError('Недопустимый тип данных {}'.format(type(data)))
 
 
-def train_eval_loop(model: Module, train_dataset, val_dataset,
-                    lr=1e-4, epoch_n=10, batch_size=32,
-                    device=None, early_stopping_patience=10, l2_reg_alpha=0,
-                    max_batches_per_epoch_train=10000,
-                    max_batches_per_epoch_val=1000,
-                    data_loader_ctor=DataLoader,
+def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
+                    lr: float = 1e-4, epoch_n: int = 10, batch_size: int = 32,
+                    device=None, early_stopping_patience: int = 10, l2_reg_alpha: float = 0,
+                    max_batches_per_epoch_train: int = 10000,
+                    max_batches_per_epoch_val: int = 1000,
                     optimizer_ctor=None,
                     lr_scheduler_ctor=None,
                     shuffle_train=True,
@@ -46,8 +45,6 @@ def train_eval_loop(model: Module, train_dataset, val_dataset,
     :param l2_reg_alpha: коэффициент L2-регуляризации
     :param max_batches_per_epoch_train: максимальное количество итераций на одну эпоху обучения
     :param max_batches_per_epoch_val: максимальное количество итераций на одну эпоху валидации
-    :param data_loader_ctor: функция для создания объекта, преобразующего датасет в батчи
-        (по умолчанию torch.utils.data.DataLoader)
     :param optimizer_ctor
     :param optimizer_params
     :param lr_scheduler_ctor
@@ -72,10 +69,10 @@ def train_eval_loop(model: Module, train_dataset, val_dataset,
     else:
         lr_scheduler = None
 
-    train_dataloader = data_loader_ctor(train_dataset, batch_size=batch_size, shuffle=shuffle_train,
-                                        num_workers=dataloader_workers_n)
-    val_dataloader = data_loader_ctor(val_dataset, batch_size=batch_size, shuffle=False,
-                                      num_workers=dataloader_workers_n)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle_train,
+                                  num_workers=dataloader_workers_n)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                                num_workers=dataloader_workers_n)
 
     best_val_loss = float('inf')
     best_epoch_i = 0
@@ -206,7 +203,7 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
     labels = []
     with torch.no_grad():
         import tqdm
-        for batch_x, batch_y in tqdm.tqdm(dataloader, total=len(dataset)/batch_size):
+        for batch_x, batch_y in tqdm.tqdm(dataloader, total=len(dataset) / batch_size):
             batch_x = copy_data_to_device(batch_x, device)
 
             if return_labels:
@@ -222,5 +219,3 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
         return np.concatenate(results_by_batch, 0), np.concatenate(labels, 0)
     else:
         return np.concatenate(results_by_batch, 0)
-
-
