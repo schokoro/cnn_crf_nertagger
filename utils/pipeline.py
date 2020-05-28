@@ -3,7 +3,7 @@ import datetime
 import traceback
 import time
 from typing import Dict, List, Tuple, Union
-
+from livelossplot import PlotLosses
 import numpy as np
 import torch
 from torch.nn import Module
@@ -30,6 +30,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
                     shuffle_train=True,
                     dataloader_workers_n: int = 0,
                     verbose_batch: bool = False,
+                    verbose_liveloss=True,
                     prev_loss: Dict[str, List[float]] = {}) -> Tuple[float, Module, Dict[str, List[float]]]:
     """
     Цикл для обучения модели. После каждой эпохи качество модели оценивается по отложенной выборке.
@@ -80,9 +81,10 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
     best_val_loss = float('inf')
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
-    train_loss = prev_loss.get('train_loss', [])
-    val_loss = prev_loss.get('val_loss', [])
 
+    losses = {'train_loss': prev_loss.get('train_loss', []), 'val_loss': prev_loss.get('val_loss', [])}
+    if verbose_liveloss:
+        liveloss = PlotLosses()
     for epoch_i in range(epoch_n):
         try:
             epoch_start = datetime.datetime.now()
@@ -121,7 +123,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
             print('Эпоха: {} итераций, {:0.2f} сек'.format(train_batches_n,
                                                            (datetime.datetime.now() - epoch_start).total_seconds()))
             print('Среднее значение функции потерь на обучении', mean_train_loss)
-            train_loss.append(mean_train_loss)
+            losses['train_loss'].append(mean_train_loss)
 
             model.eval()
             mean_val_loss = 0
@@ -146,7 +148,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
 
             mean_val_loss /= val_batches_n
             print('Среднее значение функции потерь на валидации', mean_val_loss)
-            val_loss.append(mean_val_loss)
+            losses['val_loss'].append(mean_val_loss)
 
             if mean_val_loss < best_val_loss:
                 best_epoch_i = epoch_i
@@ -168,8 +170,11 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
         except Exception as ex:
             print('Ошибка при обучении: {}\n{}'.format(ex, traceback.format_exc()))
             break
+        if verbose_liveloss:
+            liveloss.update(losses)
+            liveloss.send()
 
-    return best_val_loss, best_model, {'train_loss': train_loss, 'val_loss': val_loss}
+    return best_val_loss, best_model, losses
 
 
 def paths_to_tensor(batch_pred_paths, size) -> torch.Tensor:
