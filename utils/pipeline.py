@@ -82,7 +82,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
 
-    losses = {'loss': prev_loss.get('train_loss', []), 'val_loss': prev_loss.get('val_loss', [])}
+    losses = {'log loss': prev_loss.get('train_loss', []), 'val_log loss': prev_loss.get('val_loss', [])}
     if verbose_liveloss:
         liveloss = PlotLosses()
     for epoch_i in range(epoch_n):
