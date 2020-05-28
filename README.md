@@ -1,17 +1,22 @@
 ## cnn_crf_nertagger
 
-              precision    recall  f1-score   support
+Модель для извлечения именованных сущностей, натренированна на датасете *CoNLL-2003*
 
-     <NOTAG>       1.00      1.00      1.00    381737
-       I-LOC       0.78      0.86      0.82      1919
-       I-PER       0.88      0.89      0.88      2773
-       I-ORG       0.76      0.77      0.77      2491
-       B-LOC       0.00      0.00      0.00         6
-      B-MISC       0.33      0.11      0.17         9
-       B-ORG       0.00      0.00      0.00         5
-           O       0.99      0.98      0.99     38323
-      I-MISC       0.71      0.76      0.74       909
 
-    accuracy                           1.00    428172
-    macro avg      0.61      0.60      0.60    428172
-    weighted avg   1.00      1.00      1.00    428172
+           precision    recall  f1-score   support
+
+      PER       0.86      0.84      0.85      1617
+      LOC       0.81      0.87      0.84      1668
+      ORG       0.72      0.77      0.74      1661
+     MISC       0.75      0.73      0.74       702
+
+    micro avg   0.79      0.81      0.80      5648
+    macro avg   0.79      0.81      0.80      5648
+
+           precision    recall  f1-score   support
+
+        I       0.91      0.94      0.92      5599
+        B       0.11      0.06      0.07        18
+
+    micro avg   0.91      0.94      0.92      5617
+    macro avg   0.91      0.94      0.92      5617
