@@ -82,7 +82,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
     best_epoch_i = 0
     best_model = copy.deepcopy(model)
 
-    losses = {'train_loss': prev_loss.get('train_loss', []), 'val_loss': prev_loss.get('val_loss', [])}
+    losses = {'loss': prev_loss.get('train_loss', []), 'val_loss': prev_loss.get('val_loss', [])}
     if verbose_liveloss:
         liveloss = PlotLosses()
     for epoch_i in range(epoch_n):
@@ -123,7 +123,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
             print('Эпоха: {} итераций, {:0.2f} сек'.format(train_batches_n,
                                                            (datetime.datetime.now() - epoch_start).total_seconds()))
             print('Среднее значение функции потерь на обучении', mean_train_loss)
-            losses['train_loss'].append(mean_train_loss)
+            losses['loss'].append(mean_train_loss)
 
             model.eval()
             mean_val_loss = 0
