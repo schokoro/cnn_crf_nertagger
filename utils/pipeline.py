@@ -123,7 +123,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
             print('Эпоха: {} итераций, {:0.2f} сек'.format(train_batches_n,
                                                            (datetime.datetime.now() - epoch_start).total_seconds()))
             print('Среднее значение функции потерь на обучении', mean_train_loss)
-            losses['loss'].append(mean_train_loss)
+            losses['log loss'].append(mean_train_loss)
 
             model.eval()
             mean_val_loss = 0
@@ -148,7 +148,7 @@ def train_eval_loop(model: Module, train_dataset: Dataset, val_dataset: Dataset,
 
             mean_val_loss /= val_batches_n
             print('Среднее значение функции потерь на валидации', mean_val_loss)
-            losses['val_loss'].append(mean_val_loss)
+            losses['val_log loss'].append(mean_val_loss)
 
             if mean_val_loss < best_val_loss:
                 best_epoch_i = epoch_i
