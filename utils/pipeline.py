@@ -186,8 +186,12 @@ def paths_to_tensor(batch_pred_paths, size) -> torch.Tensor:
     return batch_pred
 
 
-def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0, return_labels=False):
+def predict_with_model(model: Module, dataset: Dataset, pad_label, device=None,
+                       batch_size: int = 32, num_workers: int = 0, return_labels=False):
     """
+    :param pad_label:
+    :param return_labels:
+    :param num_workers:
     :param model: torch.nn.Module - обученная модель
     :param dataset: torch.utils.data.Dataset - данные для применения модели
     :param device: cuda/cpu - устройство, на котором выполнять вычисления
@@ -213,7 +217,7 @@ def predict_with_model(model, dataset, device=None, batch_size=32, num_workers=0
                 labels.append(batch_y.numpy())
 
             batch_pred = model(batch_x)
-            mask = (batch_x[:, :, 1] != 0)
+            mask = (batch_x[:, :, 1] != pad_label)
             batch_pred = model.crf.viterbi_tags(batch_pred.permute(0, 2, 1), mask)
             batch_pred = paths_to_tensor(batch_pred, mask.shape)
             results_by_batch.append(batch_pred.detach().cpu().numpy())
