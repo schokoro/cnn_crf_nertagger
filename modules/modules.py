@@ -1,4 +1,4 @@
-from typing import Union, List, Dict, Tuple
+from typing import Union, List, Dict, Tuple, Optional
 from torch import nn
 from torch.utils.data import TensorDataset
 from allennlp.modules.conditional_random_field import ConditionalRandomField
@@ -17,7 +17,7 @@ class StackedConv1d(nn.Module):
     def __init__(self, features_num, layers_n=1,
                  kernel_size: Union[List[int], int] = 3,
                  dropout: float = 0.0,
-                 dilation: Union[List[int], type(None)] = None):
+                 dilation: Optional[List[int]] = None):
         """
 
         :param features_num:

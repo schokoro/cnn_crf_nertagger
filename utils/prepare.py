@@ -1,4 +1,4 @@
-from typing import Tuple, Union, List, Dict
+from typing import Tuple, Union, List, Dict, Optional
 import youtokentome as yttm
 import spacy
 import torch
@@ -59,7 +59,7 @@ def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
 
 
 def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
-                         augm: Union[int, type(None)] = None, dropout=0) -> Tuple[torch.Tensor, torch.Tensor]:
+                         augm: Optional[int] = None, dropout=0) -> Tuple[torch.Tensor, torch.Tensor]:
     """
 
     :param dropout:

@@ -2,12 +2,13 @@ import copy
 import datetime
 import traceback
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Optional
 from livelossplot import PlotLosses
 import numpy as np
 import torch
 from torch.nn import Module
-from torch.optim import Optimizer
+from torch.optim.optimizer import Optimizer
+
 from torch.utils.data import DataLoader, Dataset
 from pdb import set_trace
 
