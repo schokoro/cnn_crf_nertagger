@@ -13,10 +13,6 @@ warnings.filterwarnings('ignore')
 import numpy as np
 from allennlp.data.dataset_readers.conll2003 import Conll2003DatasetReader
 from allennlp.common.util import ensure_list
-from pdb import set_trace
-from gc import collect
-from tqdm.auto import tqdm, trange
-import wget
 from multiprocessing import cpu_count
 from modules.modules import CNN_RNN_CRF, NERTagger, CNN_CNN_CRF
 from utils.pipeline import train_eval_loop, predict_with_model
@@ -164,13 +160,9 @@ print(classification_report(valid_golden_tags, valid_pred_tags, digits=4, suffix
 
 # ### Проверка - test
 
-# In[27]:
-
 test_targets = [item[1] for item in test_dataset]
 test_targets = torch.stack(test_targets)
 print(f"test_targets.shape = {test_targets.shape}")
-
-# In[28]:
 
 
 test_pred = predict_with_model(model, test_dataset)
