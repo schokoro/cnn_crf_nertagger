@@ -66,26 +66,23 @@ class StackedConv1d(nn.Module):
         return x
 
 
-class NERTaggerModel(nn.Module):
+
+
+class CNN_RNN_CRF(nn.Module):
     def __init__(self, vocab_size, labels_num, tag2id, embedding_size=32, single_backbone_kwargs={},
-                 context_backbone_kwargs=None, rnn_hidden_size=128, rnn_layer=2, dropout=.5):
+                 rnn_hidden_size=128, rnn_layer=2, dropout=.5):
         super().__init__()
 
-        if context_backbone_kwargs is None:
-            context_backbone_kwargs = {}
         self.embedding_size = embedding_size
-        self.char_embeddings = nn.Embedding(vocab_size, embedding_size, padding_idx=0)
+        self.char_embeddings = nn.Embedding(vocab_size+1, embedding_size, padding_idx=0)
         self.single_token_backbone = StackedConv1d(embedding_size, **single_backbone_kwargs)
         self.bn1 = nn.BatchNorm1d(self.embedding_size)
-        # self.bn2 = nn.BatchNorm1d()
         self.dropout = nn.Dropout(dropout)
-        # self.context_backbone = StackedConv1d(embedding_size, **context_backbone_kwargs)
         self.context_backbone = nn.GRU(embedding_size, rnn_hidden_size, num_layers=rnn_layer, bidirectional=True)
         self.global_pooling = nn.AdaptiveMaxPool1d(1)
-        # self.out = nn.Conv1d(embedding_size, labels_num, 1)
         self.out = nn.Linear(rnn_hidden_size * 2, labels_num)
         self.labels_num = labels_num
-        STATE_TRANSITIONS_CONSTRAINTS = []  # get_state_transitions_constraints(tag2id)
+        STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
         self.crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
 
     def forward(self, tokens):
@@ -101,24 +98,59 @@ class NERTaggerModel(nn.Module):
         char_embeddings = char_embeddings.permute(0, 2, 1)  # BatchSize*MaxSentenceLen x EmbSize x MaxTokenLen
         char_embeddings = self.dropout(char_embeddings)
         char_features = self.single_token_backbone(char_embeddings)
-        # set_trace()
-        # char_features = self.bn1(char_features)
+        token_features_flat = self.global_pooling(char_features).squeeze(-1)  # BatchSize*MaxSentenceLen x EmbSize
+
+        token_features = token_features_flat.view(batch_size, max_sent_len,
+                                                  self.embedding_size)  # BatchSize x MaxSentenceLen x EmbSize
+        context_features, _ = self.context_backbone(token_features)  # BatchSize x EmbSize x MaxSentenceLen
+        logits = self.out(context_features)  # BatchSize x LabelsNum x MaxSentenceLen
+
+        return logits.permute(0, 2, 1)
+
+
+class CNN_CNN_CRF(nn.Module):
+    def __init__(self,
+                 vocab_size,
+                 labels_num,
+                 tag2id,
+                 embedding_size=32,
+                 single_backbone_kwargs=None,
+                 context_backbone_kwargs=None, dropout=0):
+        super().__init__()
+        if context_backbone_kwargs is None:
+            context_backbone_kwargs = {}
+        self.embedding_size = embedding_size
+        self.char_embeddings = nn.Embedding(vocab_size+1, embedding_size, padding_idx=0)
+        self.single_token_backbone = StackedConv1d(embedding_size, **single_backbone_kwargs)
+        self.context_backbone = StackedConv1d(embedding_size, **context_backbone_kwargs)
+        self.global_pooling = nn.AdaptiveMaxPool1d(1)
+        self.out = nn.Conv1d(embedding_size, labels_num, 1)
+        self.labels_num = labels_num
+        STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
+        self.crf = ConditionalRandomField(len(tag2id), constraints=STATE_TRANSITIONS_CONSTRAINTS)
+
+    def forward(self, tokens):
+        """
+
+        :param tokens: BatchSize x MaxSentenceLen x MaxTokenLen
+        :return:
+        """
+        batch_size, max_sent_len, max_token_len = tokens.shape
+        tokens_flat = tokens.view(batch_size * max_sent_len, max_token_len)
+
+        char_embeddings = self.char_embeddings(tokens_flat)  # BatchSize*MaxSentenceLen x MaxTokenLen x EmbSize
+        char_embeddings = char_embeddings.permute(0, 2, 1)  # BatchSize*MaxSentenceLen x EmbSize x MaxTokenLen
+        char_features = self.single_token_backbone(char_embeddings)
 
         token_features_flat = self.global_pooling(char_features).squeeze(-1)  # BatchSize*MaxSentenceLen x EmbSize
 
         token_features = token_features_flat.view(batch_size, max_sent_len,
                                                   self.embedding_size)  # BatchSize x MaxSentenceLen x EmbSize
-        # token_features = token_features.permute(0, 2, 1)  # BatchSize x EmbSize x MaxSentenceLen
-        # print(f"token_features {token_features.shape} shape")
-
-        context_features, _ = self.context_backbone(token_features)  # BatchSize x EmbSize x MaxSentenceLen
-        # for t in context_features:
-        #     print(t.shape)
-        # context_features = self.bn2(context_features)
-        # set_trace()
+        token_features = token_features.permute(0, 2, 1)  # BatchSize x EmbSize x MaxSentenceLen
+        context_features = self.context_backbone(token_features)  # BatchSize x EmbSize x MaxSentenceLen
         logits = self.out(context_features)  # BatchSize x LabelsNum x MaxSentenceLen
 
-        return logits.permute(0, 2, 1)
+        return logits
 
 
 class NERTagger:
@@ -126,7 +158,7 @@ class NERTagger:
 
     """
 
-    def __init__(self, model: NERTaggerModel, tokenizer: BPE, id2tag: dict, max_sent_len: int,
+    def __init__(self, model: CNN_RNN_CRF, tokenizer: BPE, id2tag: dict, max_sent_len: int,
                  max_token_len: int, dropout: float = 0):
         """
 

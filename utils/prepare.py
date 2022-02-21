@@ -12,22 +12,12 @@ from youtokentome import BPE
 
 class ConllDataset(Dataset):
 
-    def __init__(self, instances: List[Instance], tokenizer: BPE, tag2id: Dict[str, int],
-                 max_sent_len: int, max_token_len: int, augm: int = 0, dropout: float = 0):
-        self.tokenizer = tokenizer
+    def __init__(self, instances: List[Instance], char2id: Dict[str, int], tag2id: Dict[str, int],
+                 max_sent_len: int, max_token_len: int):
+        self.char2id = char2id
         self.tag2id = tag2id
         self.max_sent_len = max_sent_len
         self.max_token_len = max_token_len
-        self.augm = augm
-        self.dropout = dropout
-        if augm > 0:
-            add_instances = []
-            b_tags = {'B-MISC', 'B-LOC', 'B-ORG'}
-            for instance in instances:
-                tags = set(instance['tags'])
-                if tags.intersection(b_tags):
-                    add_instances += [instance] * augm
-            instances += add_instances
         self.instances = instances
 
     def __len__(self):
@@ -40,22 +30,10 @@ class ConllDataset(Dataset):
         assert len(sent['tokens']) == len(sent['tags'])
         for token_i, token in enumerate(sent['tokens']):
             targets[token_i] = self.tag2id[sent['tags'][token_i]]
-            token_pieces = self.tokenizer.encode(token.text, dropout_prob=self.dropout)
-            for piece_i, piece in enumerate(token_pieces):
-                inputs[token_i, piece_i + 1] = piece
+
+            for char_i, char in enumerate(token.text):
+                inputs[token_i, char_i + 1] = self.char2id[char]
         return inputs, targets
-
-
-def make_yttm_tokenizer(train_conll: List[Instance], vocab_size=400):
-    tokens = []
-    for instance in train_conll:
-        tokens += [token.text for token in instance['tokens']]
-    text = ' '.join(tokens)
-
-    with open('train_chunks.txt', 'w') as fobj:
-        fobj.write(text)
-    yttm.BPE.train(data='train_chunks.txt', vocab_size=vocab_size, model='conll_model.yttm')
-    return yttm.BPE('conll_model.yttm')
 
 
 def tag_corpus_to_tensor(sentences, tokenizer, tag2id, max_sent_len, max_token_len,
