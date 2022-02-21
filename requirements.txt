@@ -1,9 +1,11 @@
 allennlp
 tqdm
-youtokentome
 wget
 pandas
 seaborn
+jupyter
+jupyter_contrib_nbextensions
+jupyter_nbextensions_configurator
 jupyterlab
 seqeval
 ipymarkup
