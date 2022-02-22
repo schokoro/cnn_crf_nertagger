@@ -52,9 +52,11 @@ class StackedConv1d(nn.Module):
                     features_num, features_num, l_kernel_size,
                     padding=(l_kernel_size - 1) * l_dilation // 2, dilation=l_dilation
                 ),
+                nn.LeakyReLU(),
                 nn.Dropout(dropout),
-                nn.LeakyReLU()))
-        self.layers = nn.ModuleList(layers)
+                # nn.BatchNorm1d(features_num)
+            ))
+            self.layers = nn.ModuleList(layers)
 
     def forward(self, x):
         """
@@ -115,13 +117,16 @@ class CNN_CNN_CRF(nn.Module):
                  tag2id,
                  embedding_size=32,
                  single_backbone_kwargs=None,
-                 context_backbone_kwargs=None, dropout=0):
+                 context_backbone_kwargs=None, dropout1=0, dropout2=0):
         super().__init__()
         if context_backbone_kwargs is None:
             context_backbone_kwargs = {}
         self.embedding_size = embedding_size
         self.char_embeddings = nn.Embedding(vocab_size+1, embedding_size, padding_idx=0)
         self.single_token_backbone = StackedConv1d(embedding_size, **single_backbone_kwargs)
+        self.bn1 = nn.BatchNorm1d(self.embedding_size)
+        self.dropout1 = nn.Dropout(dropout1)
+        self.dropout2 = nn.Dropout(dropout2)
         self.context_backbone = StackedConv1d(embedding_size, **context_backbone_kwargs)
         self.global_pooling = nn.AdaptiveMaxPool1d(1)
         self.out = nn.Conv1d(embedding_size, labels_num, 1)
@@ -140,16 +145,19 @@ class CNN_CNN_CRF(nn.Module):
 
         char_embeddings = self.char_embeddings(tokens_flat)  # BatchSize*MaxSentenceLen x MaxTokenLen x EmbSize
         char_embeddings = char_embeddings.permute(0, 2, 1)  # BatchSize*MaxSentenceLen x EmbSize x MaxTokenLen
+        char_embeddings = self.dropout1(char_embeddings)
         char_features = self.single_token_backbone(char_embeddings)
 
         token_features_flat = self.global_pooling(char_features).squeeze(-1)  # BatchSize*MaxSentenceLen x EmbSize
 
         token_features = token_features_flat.view(batch_size, max_sent_len,
                                                   self.embedding_size)  # BatchSize x MaxSentenceLen x EmbSize
+
         token_features = token_features.permute(0, 2, 1)  # BatchSize x EmbSize x MaxSentenceLen
+        token_features = self.bn1(token_features)
+        token_features = self.dropout2(token_features)
         context_features = self.context_backbone(token_features)  # BatchSize x EmbSize x MaxSentenceLen
         logits = self.out(context_features)  # BatchSize x LabelsNum x MaxSentenceLen
-
         return logits
 
 

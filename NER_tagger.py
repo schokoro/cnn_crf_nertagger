@@ -83,10 +83,11 @@ torch.cuda.empty_cache()
 #     len(char2id), len(tag2id), tag2id, embedding_size=64,
 #     single_backbone_kwargs=dict(layers_n=3, kernel_size=3, dropout=0.2, dilation=[1, 1, 1]),
 #     rnn_hidden_size=256, rnn_layer=2, dropout=0)
+
 model = CNN_CNN_CRF(
     len(char2id), len(tag2id), tag2id, embedding_size=64,
     single_backbone_kwargs=dict(layers_n=3, kernel_size=3, dropout=0.2, dilation=[1, 1, 1]),
-    context_backbone_kwargs=dict(layers_n=6, kernel_size=3, dropout=0.1, dilation=[1, 1, 1, 2, 2, 2]),  dropout=0)
+    context_backbone_kwargs=dict(layers_n=6, kernel_size=3, dropout=0.1, dilation=[1, 1, 1,  2, 2, 2]),  dropout1=0.3)
 
 print('Количество параметров', sum(np.product(t.shape) for t in model.parameters()))
 
@@ -101,7 +102,7 @@ losses = {}
     valid_dataset,
     lr=1e-3,
     epoch_n=200,
-    batch_size=400,
+    batch_size=256,
     device=device,
     early_stopping_patience=8,
     l2_reg_alpha=1e-6,
@@ -147,8 +148,6 @@ print(classification_report(train_golden_tags, train_pred_tags, digits=4, suffix
 # ### Проверка - valid
 valid_targets = [item[1] for item in valid_dataset]
 valid_targets = torch.stack(valid_targets)
-print(f"{valid_targets.shape}")
-
 valid_pred = predict_with_model(model, valid_dataset)
 
  
