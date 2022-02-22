@@ -81,7 +81,7 @@ class CNN_RNN_CRF(nn.Module):
         self.bn1 = nn.BatchNorm1d(self.embedding_size)
         self.dropout = nn.Dropout(dropout)
         self.context_backbone = nn.GRU(embedding_size, rnn_hidden_size, num_layers=rnn_layer, bidirectional=True)
-        self.global_pooling = nn.AdaptiveMaxPool1d(1)
+
         self.out = nn.Linear(rnn_hidden_size * 2, labels_num)
         self.labels_num = labels_num
         STATE_TRANSITIONS_CONSTRAINTS = get_state_transitions_constraints(tag2id)
